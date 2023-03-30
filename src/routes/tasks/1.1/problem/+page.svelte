@@ -1,14 +1,22 @@
 <script>
 	import { onMount } from "svelte";
+	import SimpleSynth from "./simple-synth";
+	let audioContext;
+	let synth;
+	let started = false;
 
 	const TICK_TIME = 100;
 	const BOARD_DIMENSIONS = { x: 20, y: 20 };
 
-	let snake = [
-		{ x: 4, y: 4 },
-		{ x: 4, y: 3 },
-		{ x: 4, y: 2 },
-	];
+	function getSnake() {
+		return [
+			{ x: 4, y: 4 },
+			{ x: 4, y: 3 },
+			{ x: 4, y: 2 },
+		];
+	}
+
+	let snake = getSnake();
 	let apple = { x: 3, y: 4 };
 	let score = 0;
 
@@ -54,26 +62,56 @@
 	}
 
 	function gameLoop() {
-		snake = newSnake(currentDirection);
+		snake = moveSnake(currentDirection);
 	}
 
 	let stopGameLoop = () => {};
 
 	onMount(async () => {
-		const intervalRef = setInterval(gameLoop, 120);
-		stopGameLoop = () => clearInterval(intervalRef);
-		return stopGameLoop;
+		const AudioContext = window.AudioContext || window.webkitAudioContext;
+		audioContext = new AudioContext();
+		synth = new SimpleSynth(audioContext);
+
+		return () => {
+			stopGameLoop;
+		};
 	});
+
+	function start() {
+		audioContext.resume();
+		deddBeep(true);
+		const intervalRef = setInterval(gameLoop, 120);
+		stopGameLoop = () => {
+			clearInterval(intervalRef);
+		};
+	}
+
+	async function appleBeep() {
+		const thing = 0.15;
+		synth.play(70, audioContext.currentTime + thing * 0.1, thing);
+		synth.play(75, audioContext.currentTime + thing * 0.3, thing);
+		synth.play(80, audioContext.currentTime + thing * 0.6, thing);
+	}
+
+	async function deddBeep() {
+		synth.play(60, audioContext.currentTime, 0.5);
+	}
+
+	function dedd() {
+		deddBeep(true);
+		stopGameLoop();
+		started = false;
+	}
 
 	let shouldGrow = false;
 	$: if (equals(snake[0], apple)) {
 		shouldGrow = true;
 		apple = randomUnoccipiedPoint();
+		appleBeep();
 	}
 
 	$: if (isOutsideBoard(snake[0])) {
-		stopGameLoop();
-		alert("you suck");
+		dedd();
 	}
 
 	function isOutsideBoard(point) {
@@ -85,15 +123,15 @@
 		);
 	}
 
-	function newSnake(direction) {
+	function moveSnake(direction) {
 		let head = snake[0];
 		let newHead = { x: head.x + direction.x, y: head.y + direction.y };
 
-		const foo = [newHead, ...snake];
-		if (!shouldGrow) foo.pop();
+		const newSnake = [newHead, ...snake];
+		if (!shouldGrow) newSnake.pop();
 
 		shouldGrow = false;
-		return foo;
+		return newSnake;
 	}
 
 	function onKeydown(event) {
@@ -106,9 +144,16 @@
 
 		event.preventDefault();
 	}
+	function onClick() {
+		if (started) return;
+		snake = getSnake();
+		currentDirection = down;
+		start();
+		started = true;
+	}
 </script>
 
-<svelte:body on:keydown={onKeydown} />
+<svelte:body on:keydown={onKeydown} on:click={onClick} />
 <div class="main-content min-width">
 	<div class="score">{score}</div>
 
