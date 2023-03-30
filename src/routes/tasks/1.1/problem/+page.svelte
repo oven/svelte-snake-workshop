@@ -4,6 +4,7 @@
 	let audioContext;
 	let synth;
 	let started = false;
+	let paused = false;
 
 	const TICK_TIME = 100;
 	const BOARD_DIMENSIONS = { x: 20, y: 20 };
@@ -72,18 +73,28 @@
 		audioContext = new AudioContext();
 		synth = new SimpleSynth(audioContext);
 
-		return () => {
-			stopGameLoop;
-		};
+		return () => stopGameLoop();
 	});
 
 	function start() {
 		audioContext.resume();
+		paused = false;
+		started = true;
 		deddBeep(true);
 		const intervalRef = setInterval(gameLoop, 120);
 		stopGameLoop = () => {
 			clearInterval(intervalRef);
 		};
+	}
+
+	function pause() {
+		paused = true;
+		deddBeep(true);
+		stopGameLoop();
+	}
+
+	function togglePause() {
+		paused ? start() : pause();
 	}
 
 	async function appleBeep() {
@@ -135,6 +146,14 @@
 	}
 
 	function onKeydown(event) {
+		if (event.key === " ") {
+			if (started) {
+				togglePause();
+			} else {
+				newGame();
+			}
+		}
+
 		let direction = directions[event.keyCode];
 		if (!direction) {
 			return;
@@ -144,12 +163,16 @@
 
 		event.preventDefault();
 	}
-	function onClick() {
-		if (started) return;
+
+	function newGame() {
 		snake = getSnake();
 		currentDirection = down;
 		start();
-		started = true;
+	}
+
+	function onClick() {
+		if (started) return;
+		newGame();
 	}
 </script>
 
@@ -166,6 +189,14 @@
 		{/each}
 
 		<div class="apple" style={pos(apple)} />
+
+		{#if !started}
+			<div>Press spacebar to start</div>
+		{/if}
+
+		{#if paused}
+			<div>Paused</div>
+		{/if}
 	</div>
 </div>
 
