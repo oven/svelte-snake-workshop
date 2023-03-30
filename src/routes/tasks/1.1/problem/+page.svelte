@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from "svelte";
-	import SimpleSynth from "./simple-synth";
+	import SimpleSynth from "./simple-synth.js";
+
 	let audioContext;
 	let synth;
 	let started = false;
@@ -24,9 +25,10 @@
 	const CELL_SIZE = 25;
 
 	function pos(coordinate) {
-		return `top: ${CELL_SIZE * coordinate.y}px; left: ${
-			CELL_SIZE * coordinate.x
-		}px`;
+		return (
+			`top: ${CELL_SIZE * coordinate.y}px; ` +
+			`left: ${CELL_SIZE * coordinate.x}px`
+		);
 	}
 
 	let up = { x: 0, y: -1 };
@@ -34,7 +36,8 @@
 	let left = { x: -1, y: 0 };
 	let right = { x: 1, y: 0 };
 
-	let currentDirection = down;
+	let currentDirection;
+	let directionQueue = [];
 
 	let directions = {
 		37: left,
@@ -53,7 +56,7 @@
 		return { x, y };
 	}
 
-	function randomUnoccipiedPoint() {
+	function randomUnoccupiedPoint() {
 		let point = randomPoint();
 
 		while (snake.some((bodyPart) => equals(bodyPart, point))) {
@@ -63,7 +66,9 @@
 	}
 
 	function gameLoop() {
-		snake = moveSnake(currentDirection);
+		let direction = directionQueue.shift();
+		if (direction) currentDirection = direction;
+		snake = moveSnake();
 	}
 
 	let stopGameLoop = () => {};
@@ -81,7 +86,7 @@
 		paused = false;
 		started = true;
 		deddBeep(true);
-		const intervalRef = setInterval(gameLoop, 120);
+		const intervalRef = setInterval(gameLoop, 150);
 		stopGameLoop = () => {
 			clearInterval(intervalRef);
 		};
@@ -118,7 +123,7 @@
 	$: if (equals(snake[0], apple)) {
 		shouldGrow = true;
 		score++;
-		apple = randomUnoccipiedPoint();
+		apple = randomUnoccupiedPoint();
 		appleBeep();
 	}
 
@@ -135,15 +140,25 @@
 		);
 	}
 
-	function moveSnake(direction) {
+	function moveSnake() {
 		let head = snake[0];
-		let newHead = { x: head.x + direction.x, y: head.y + direction.y };
+		let newHead = {
+			x: head.x + currentDirection.x,
+			y: head.y + currentDirection.y,
+		};
 
 		const newSnake = [newHead, ...snake];
 		if (!shouldGrow) newSnake.pop();
 
 		shouldGrow = false;
 		return newSnake;
+	}
+
+	function isPerpendicular(a, b) {
+		if (a === down || a === up) {
+			return b === left || b === right;
+		}
+		return b === up || b === down;
 	}
 
 	function onKeydown(event) {
@@ -153,14 +168,22 @@
 			} else {
 				newGame();
 			}
+			return;
 		}
+
+		if (!started) return;
 
 		let direction = directions[event.keyCode];
 		if (!direction) {
 			return;
 		}
 
-		currentDirection = direction;
+		if (directionQueue.length > 0) {
+			if (isPerpendicular(directionQueue.at(-1), direction))
+				directionQueue.push(direction);
+		} else if (isPerpendicular(currentDirection, direction)) {
+			directionQueue.push(direction);
+		}
 
 		event.preventDefault();
 	}
@@ -168,6 +191,7 @@
 	function newGame() {
 		snake = getSnake();
 		currentDirection = down;
+		directionQueue = [];
 		score = 0;
 		start();
 	}
