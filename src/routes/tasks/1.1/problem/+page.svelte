@@ -117,6 +117,7 @@
 	let shouldGrow = false;
 	$: if (equals(snake[0], apple)) {
 		shouldGrow = true;
+		score++;
 		apple = randomUnoccipiedPoint();
 		appleBeep();
 	}
@@ -167,6 +168,7 @@
 	function newGame() {
 		snake = getSnake();
 		currentDirection = down;
+		score = 0;
 		start();
 	}
 
